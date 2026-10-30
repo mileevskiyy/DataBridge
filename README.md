@@ -1,5 +1,9 @@
 # DataBridge
 
+[![Live demo](https://img.shields.io/badge/Live_demo-Try_DataBridge-111111?style=for-the-badge)](https://databridge-demo.onrender.com/)
+
+**[Open the live demo](https://databridge-demo.onrender.com/)** · Select **Try the demo**. No account or password needed. The free server may take about a minute to wake; shared synthetic data resets on restart.
+
 **A data-quality and ingestion workspace that turns imperfect source files into traceable, canonical records.**
 
 DataBridge combines a **Python / FastAPI** backend, a **SQL-backed ingestion engine** and a **React / TypeScript** interface. It separates source ingestion, deterministic validation and transactional promotion so that a successful upload is never confused with a successful import.

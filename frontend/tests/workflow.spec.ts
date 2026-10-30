@@ -1,6 +1,6 @@
 import{test,expect}from'@playwright/test';
 import{fileURLToPath}from'node:url';
-test('upload, map, validate, quarantine, commit and replay',async({page})=>{
+test('upload, map, validate, quarantine and commit',async({page})=>{
  await page.goto('/');
  await page.getByRole('button',{name:'Try the demo',exact:true}).click();
  await expect(page.getByRole('heading',{name:'A clean path from file to database.'})).toBeVisible();
