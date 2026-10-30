@@ -1,0 +1,34 @@
+import{test,expect}from'@playwright/test';
+import{fileURLToPath}from'node:url';
+test('upload, map, validate, quarantine, commit and replay',async({page})=>{
+ await page.goto('/');
+ await page.getByRole('button',{name:'Try the demo',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'A clean path from file to database.'})).toBeVisible();
+ if(!process.env.DEMO_URL)await page.screenshot({path:fileURLToPath(new URL('../../docs/databridge-preview.png',import.meta.url)),fullPage:true});
+ await page.getByRole('button',{name:'New import',exact:true}).click();
+ const id=`B-${Date.now()}`;
+ const csv=`id,full_name,contact,total,day,region\n${id},Browser Tester,browser@example.test,12.50,2026-10-20,hk\n${id}-bad,Invalid Email,not-email,1.00,2026-10-20,US\n${id},Browser Tester,browser@example.test,12.50,2026-10-20,hk\n`;
+ await page.getByLabel('Source file').setInputFiles({name:'browser-feed.csv',mimeType:'text/csv',buffer:Buffer.from(csv)});
+ const columns=['id','full_name','contact','total','day','region'];
+ const names=['External ID','Customer name','Email address','Amount · USD','Record date','Country code'];
+ for(let i=0;i<names.length;i++)await page.getByLabel(`Source column for ${names[i]}`,{exact:true}).selectOption(columns[i]);
+ await page.getByRole('button',{name:'Validate file',exact:true}).click();
+ const report=page.getByRole('dialog',{name:'Import details'});
+ await expect(report).toContainText('email: invalid address');
+ await expect(report).toContainText('Identical record; no additional write');
+ await page.getByRole('button',{name:'Commit valid rows',exact:true}).click();
+ await expect(report).toContainText('Committed successfully');
+ await page.getByRole('button',{name:'Close report'}).click();
+ await page.getByRole('button',{name:'Record catalog',exact:true}).click();
+ await page.getByLabel('Search records').fill(id);
+ await expect(page.getByRole('cell',{name:id,exact:true})).toHaveCount(1);
+ await expect(page.getByRole('cell',{name:`${id}-bad`,exact:true})).toHaveCount(0);
+ await page.getByRole('button',{name:'View import',exact:true}).click();
+ const downloadPromise=page.waitForEvent('download');
+ await page.getByRole('link',{name:'Error report',exact:true}).click();
+ expect((await downloadPromise).suggestedFilename()).toBe('databridge-errors.csv');
+ await page.getByRole('button',{name:'Close report'}).click();
+ await page.reload();
+ await expect(page.getByRole('heading',{name:'A clean path from file to database.'})).toBeVisible();
+ if(!process.env.DEMO_URL){await page.setViewportSize({width:390,height:844});await page.screenshot({path:fileURLToPath(new URL('../../docs/databridge-mobile.png',import.meta.url)),fullPage:true});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);}
+});

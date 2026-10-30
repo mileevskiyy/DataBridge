@@ -1,0 +1,6 @@
+external_id,name,email,amount,date,country
+C-2001,Riley Kim,riley@example.test,249.50,2026-10-26,HK
+C-2002,Jamie Costa,not-an-email,90.00,2026-10-26,PT
+C-2003,Casey Wong,casey@example.test,-12.00,2026-10-27,SG
+C-2004,Quinn Reed,quinn@example.test,79.99,2026-10-27,GB
+C-2001,Riley Kim,riley@example.test,249.50,2026-10-26,HK
