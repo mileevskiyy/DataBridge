@@ -16,6 +16,8 @@ test('upload, map, validate, quarantine and commit',async({page})=>{
  const report=page.getByRole('dialog',{name:'Import details'});
  await expect(report).toContainText('email: invalid address');
  await expect(report).toContainText('Identical record; no additional write');
+ let releaseRefresh=()=>{};const refreshGate=new Promise<void>(resolve=>{releaseRefresh=resolve;});
+ await page.route('**/api/workspace',async route=>{await refreshGate;await route.continue();},{times:1});
  await page.getByRole('button',{name:'Commit valid rows',exact:true}).click();
  await expect(report).toContainText('Committed successfully');
  await page.getByRole('button',{name:'Close report'}).click();
@@ -23,6 +25,10 @@ test('upload, map, validate, quarantine and commit',async({page})=>{
  await page.getByLabel('Search records').fill(id);
  await expect(page.getByRole('cell',{name:id,exact:true})).toHaveCount(1);
  await expect(page.getByRole('cell',{name:`${id}-bad`,exact:true})).toHaveCount(0);
+ const refreshed=page.waitForResponse(r=>r.url().endsWith('/api/workspace'));releaseRefresh();await refreshed;
+ await expect(page.getByRole('button',{name:'Refresh workspace'})).toBeEnabled();
+ await expect(page.getByLabel('Search records')).toHaveValue(id);
+ await expect(page.getByRole('button',{name:'View import',exact:true})).toHaveCount(1);
  await page.getByRole('button',{name:'View import',exact:true}).click();
  const downloadPromise=page.waitForEvent('download');
  await page.getByRole('link',{name:'Error report',exact:true}).click();
