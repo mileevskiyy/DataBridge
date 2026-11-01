@@ -6,7 +6,7 @@ import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from threading import RLock
-from fastapi import FastAPI, File, UploadFile, Request
+from fastapi import FastAPI, File, UploadFile, Request, Query
 from fastapi.responses import JSONResponse, Response, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, ConfigDict
@@ -15,8 +15,29 @@ from .engine import Engine, Problem, MAX_BYTES
 class ValidationInput(BaseModel):
     model_config = ConfigDict(extra='forbid')
     source_id: str = Field(max_length=80)
-    mapping: dict[str, str]
-    policy: str = 'insert_only'
+    mapping: dict[str, str] | None = None
+    policy: str | None = None
+    schema_id: str | None = Field(default=None,max_length=80)
+    schema_version: int | None = Field(default=None,ge=1,le=20)
+    recipe_id: str | None = Field(default=None,max_length=80)
+    recipe_version: int | None = Field(default=None,ge=1,le=20)
+    options: dict | None = None
+
+class SchemaInput(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    name: str = Field(min_length=3,max_length=100)
+    definition: dict
+    expected_version: int | None = Field(default=None,ge=1,le=20)
+
+class RecipeInput(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    name: str = Field(min_length=3,max_length=100)
+    schema_id: str = Field(max_length=80)
+    schema_version: int = Field(ge=1,le=20)
+    mapping: dict[str,str]
+    policy: str
+    options: dict | None = None
+    expected_version: int | None = Field(default=None,ge=1,le=20)
 
 class LoginInput(BaseModel):
     password: str = Field(max_length=200)
@@ -147,16 +168,16 @@ def create_app(engine=None, public_demo=None):
         return store.overview()
 
     @app.post('/api/sources', status_code=201)
-    async def upload(file: UploadFile = File()):
+    async def upload(file: UploadFile = File(), delimiter: str = Query(default=',',max_length=1)):
         try:
             content = await file.read(MAX_BYTES + 1)
-            return store.upload(Path(file.filename or 'upload').name, content)
+            return store.upload(Path(file.filename or 'upload').name, content, delimiter)
         finally:
             await file.close()
 
     @app.post('/api/runs/validate', status_code=201)
     def validate(body: ValidationInput):
-        return store.validate(body.source_id, body.mapping, body.policy)
+        return store.validate(**body.model_dump())
 
     @app.get('/api/runs/{run_id}')
     def get_run(run_id: str):
@@ -171,8 +192,44 @@ def create_app(engine=None, public_demo=None):
         return Response(store.rejected_csv(run_id), media_type='text/csv', headers={'Content-Disposition': 'attachment; filename="databridge-errors.csv"'})
 
     @app.get('/api/records.csv')
-    def records():
-        return Response(store.export_csv(), media_type='text/csv', headers={'Content-Disposition': 'attachment; filename="databridge-records.csv"'})
+    def records(schema_id: str = Query(default='ledger',max_length=80)):
+        return Response(store.export_csv(schema_id), media_type='text/csv', headers={'Content-Disposition': 'attachment; filename="databridge-records.csv"'})
+
+    @app.get('/api/schemas')
+    def schemas():
+        with store.lock: return store.schemas()
+
+    @app.get('/api/schemas/{schema_id}')
+    def schema(schema_id: str, version: int | None = Query(default=None,ge=1,le=20)):
+        with store.lock: return store.schema(schema_id,version)
+
+    @app.post('/api/schemas',status_code=201)
+    def create_schema(body: SchemaInput):
+        return store.save_schema(body.name,body.definition)
+
+    @app.put('/api/schemas/{schema_id}')
+    def update_schema(schema_id: str, body: SchemaInput):
+        return store.save_schema(body.name,body.definition,schema_id,body.expected_version)
+
+    @app.get('/api/recipes')
+    def recipes():
+        with store.lock: return store.recipes()
+
+    @app.get('/api/recipes/{recipe_id}')
+    def recipe(recipe_id: str, version: int | None = Query(default=None,ge=1,le=20)):
+        with store.lock: return store.recipe(recipe_id,version)
+
+    @app.post('/api/recipes',status_code=201)
+    def create_recipe(body: RecipeInput):
+        return store.save_recipe(**body.model_dump(exclude={'expected_version'}))
+
+    @app.put('/api/recipes/{recipe_id}')
+    def update_recipe(recipe_id: str,body: RecipeInput):
+        return store.save_recipe(**body.model_dump(),recipe_id=recipe_id)
+
+    @app.get('/api/catalog')
+    def catalog(schema_id: str = Query(default='ledger',max_length=80)):
+        return store.catalog(schema_id)
 
     dist = Path(__file__).resolve().parent.parent / 'frontend' / 'dist'
     if dist.exists():

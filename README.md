@@ -8,14 +8,17 @@
 
 DataBridge combines a **Python / FastAPI** backend, a **SQL-backed ingestion engine** and a **React / TypeScript** interface. It separates source ingestion, deterministic validation and transactional promotion so that a successful upload is never confused with a successful import.
 
-The implemented destination is a customer ledger: an external identifier, customer name, email, USD amount, record date and country code. The column mapping is configurable; the destination schema and validation rules are explicit.
+The original customer ledger remains available alongside custom, schema-isolated datasets. Define fields, publish validation-rule versions and save recurring import configurations as recipes. Every report retains the exact schema, recipe, mapping and parsing settings used for its decisions.
 
 ![DataBridge workspace](docs/databridge-preview.png)
 
 ## What the application does
 
 - Ingests UTF-8 CSV or a JSON array of flat objects, preserving source headers and row values.
-- Maps source columns to six canonical fields through an interactive review step.
+- Maps source columns to the built-in ledger or custom typed fields through an interactive review step.
+- Versions schema rules and reusable import recipes, with optimistic edit checks and immutable historical snapshots.
+- Parses explicitly chosen CSV delimiters, decimal separators and date formats without locale guessing.
+- Separates custom destination catalogs and revisions by schema identity.
 - Normalizes whitespace, email casing and two-letter country codes; validates identifiers, dates, required values and decimal amounts.
 - Classifies every source row as **insert**, **update**, **skip** or **reject** before writing destination records.
 - Skips identical duplicates while quarantining conflicting duplicates within a file.
@@ -173,8 +176,53 @@ The automated suite covers validation/quarantine, exact monetary storage, malfor
 
 GitHub Actions runs the Python suite, TypeScript build and Chromium scenario. See [verification notes](docs/VERIFICATION.md) for the recorded local result.
 
+## Versioned schemas and recurring import recipes
+
+Open **Schemas & recipes** to create a dataset with 1–20 fields. Supported types are text, email, country, integer, decimal and date. Each field declares required/optional status, text normalization (`none`, `trim`, `lower`, `upper`), maximum length, optional numeric bounds, decimal scale or an allowed-value list for text/email/country. The unique record key is required text up to 120 characters. Other fields are not independently unique and there are no relational reference-data lookups.
+
+Schema versions can change validation rules and labels. Field keys/types/scales, dataset name, identity field and key normalization remain stable: structural changes require another schema/dataset. This deliberately avoids pretending that a new definition automatically migrates old records. Publishing stricter rules does not rewrite existing records or invalidate reports deliberately pinned to an earlier version. A catalog can therefore contain historical values that would not satisfy the newest rules; each record links to its actual source run.
+
+**New import** can use manual configuration or a saved recipe version. A recipe pins schema identity/version, field mapping, conflict policy, CSV delimiter, decimal separator and source date format. Changing a recipe creates another version; earlier versions remain selectable. A changed source header is reported explicitly. Draft changes cannot silently override a saved recipe: save a new version or detach it and validate manually.
+
+CSV delimiters: comma, semicolon, tab and pipe. Decimal separators: dot or comma, without grouping separators. Dates: exact `YYYY-MM-DD`, `DD/MM/YYYY` or `MM/DD/YYYY`, normalized to ISO dates. Custom decimals are canonical fixed-scale strings (up to six decimal places), integers are JSON integers within the supported numeric range. The original ledger continues to store USD integer cents. Optional unmapped fields become null. Rules are declarative and do not execute user code.
+
+Each validation run stores independent schema/recipe/options snapshots. Its replay identity includes those versions and the destination revision. Custom destination keys and revisions are isolated per schema: writing one dataset does not stale a preview for another. Commit/replay/rollback semantics also apply to custom records. The record catalog selects and exports each dataset separately; overview counts include all datasets. CSV error reports retain source columns and escape potentially executable spreadsheet headers/values.
+
+### Try the supplier workflow
+
+Use [supplier-feed.csv](examples/supplier-feed.csv) and the [example definition](examples/supplier-schema.json):
+
+1. Create **Supplier inventory** with `sku` (text/key), `name` (text), `price` (decimal, minimum 0, maximum 1000) and `released` (date).
+2. Start an import, choose this schema, semicolon delimiter, comma decimal separator and `DD/MM/YYYY` dates.
+3. Map `Code → sku`, `Title → name`, `Cost → price`, `Launch → released`; save **Weekly supplier** as a recipe.
+4. Validate, inspect accepted/rejected rows, then explicitly commit valid rows.
+5. Publish a schema version with price maximum 10. A recipe pinned to version 1 still uses maximum 1000; save recipe version 2 targeting schema version 2 to apply the new bound. Reopen the original report to inspect its unchanged rules and decisions.
+
+![Schema studio](docs/schema-studio.png)
+![Versioned validation report](docs/schema-report.png)
+
+### API and CLI configuration
+
+- `GET/POST /api/schemas`, `GET/PUT /api/schemas/{id}`; GET accepts `version`, PUT requires the current `expected_version`.
+- `GET/POST /api/recipes`, `GET/PUT /api/recipes/{id}` with the same explicit-version behavior.
+- `POST /api/sources?delimiter=%3B` parses a semicolon CSV before validation.
+- `POST /api/runs/validate` accepts manual schema/version/mapping/policy/options, or `source_id` plus `recipe_id` and optional `recipe_version` (latest if omitted).
+- `GET /api/catalog?schema_id=...` and `/api/records.csv?schema_id=...` select a destination.
+
+All endpoints retain the existing operator session, Origin and CSRF controls. Public visitors share synthetic data; schemas do not introduce user/tenant isolation.
+
+For a recipe already saved in a persistent local database:
+
+```sh
+.venv/bin/python -m backend.cli examples/supplier-feed.csv --database data/databridge.sqlite --recipe-id YOUR_RECIPE_ID --recipe-version 1 --commit
+```
+
+Manual CLI imports also support `--schema-id`, `--schema-version`, `--mapping`, `--policy` and `--delimiter`. Mapping/commit behavior remains compatible with the original ledger workflow.
+
+Configuration bounds: 20 custom schemas, 20 recipes, 20 versions each; schema definitions up to 32 KB and combined version configuration storage up to 2 MB. Custom destinations retain at most 20,000 rows / 20 MB across the installation. Original upload/report limits still apply. There is no configuration deletion or custom-dataset migration wizard in this release. File-backed SQLite preserves definitions, recipes, catalogs and report snapshots across restarts; the public demo resets on restart.
+
 ## Scope and next steps
 
-This is a focused ingestion application for a defined ledger schema. It is not a general-purpose ETL orchestrator. The current implementation is synchronous, bounded to 5,000 rows / 2 MB per file, single-process and backed by SQLite. It does not claim a PostgreSQL adapter, distributed workers, scheduled ingestion, external API connectors, multi-tenant isolation or measured production throughput.
+This is a bounded ingestion application for explicit, versioned ledger/custom schemas. It is not a general-purpose ETL orchestrator. The current implementation is synchronous, bounded to 5,000 rows / 2 MB per file, single-process and backed by SQLite. It does not claim a PostgreSQL adapter, distributed workers, scheduled ingestion, external API connectors, multi-tenant isolation or measured production throughput.
 
 [Architecture and API](docs/ARCHITECTURE.md) · [Development roadmap](docs/ROADMAP.md) · [GitHub guide](docs/GITHUB_UPLOAD_RU.md) · [CV / LinkedIn wording](docs/PORTFOLIO.md)

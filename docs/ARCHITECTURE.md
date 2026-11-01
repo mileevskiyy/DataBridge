@@ -44,3 +44,7 @@ The interactive FastAPI schema is available at `/docs` when the server runs. Mut
 ## Resource limits
 
 2 MB file content, 5,000 records, 50 columns, 100-character headers, 2,000-character values, 100 source uploads and 200 validation runs. Workspace source JSON is capped at approximately 10 million characters and report JSON at 20 million characters. JSON serialization uses escaped Unicode, making these conservative content-storage bounds. The request body is also bounded with multipart overhead allowance. No guarantee of unbounded data volume or pagination is made.
+
+## Versioned configuration and dataset boundaries
+
+Schema/recipe heads track current versions; append-only version tables preserve their definitions/snapshots. Expected-version writes, version insertion and audit entries share one SQLite transaction. Validation snapshots its exact contract and stores that context alongside original row decisions. Recipe replay never resolves a saved version to newer rules. Each custom schema owns a separate key namespace and destination revision; the legacy ledger retains its original records/revision. Generic records store normalized JSON plus source run and update time. Committing checks the matching dataset revision and applies records/status/revision/audit atomically. Structural schema changes require a new dataset, and rule publication deliberately does not retroactively revalidate existing rows.

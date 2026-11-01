@@ -1,0 +1,32 @@
+{
+  "key_field": "sku",
+  "fields": [
+    {
+      "key": "sku",
+      "label": "SKU",
+      "type": "text",
+      "required": true,
+      "normalization": "upper",
+      "max_length": 80
+    },
+    {
+      "key": "name",
+      "label": "Product name",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "price",
+      "label": "Unit price",
+      "type": "decimal",
+      "minimum": "0",
+      "maximum": "1000",
+      "scale": 2
+    },
+    {
+      "key": "released",
+      "label": "Release date",
+      "type": "date"
+    }
+  ]
+}

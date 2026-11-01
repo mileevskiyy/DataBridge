@@ -1,5 +1,17 @@
 # Verification record
 
+## Versioned schema/recipe upgrade — 1 November 2026
+
+- Python suite: **45 passed**, including the original 25 checks. Existing dependency deprecation warnings remain; they do not fail the suite.
+- TypeScript checks and production build passed.
+- Browser suite: **2 passed** locally. The original ledger workflow remains covered. The new scenario creates a schema through the editor, imports a semicolon/comma-decimal/DMY file, saves a recipe, commits valid data into its own catalog, publishes tighter rules and a new recipe version, then reopens the original unchanged report. Desktop/mobile screenshots were inspected; no document-level horizontal overflow at 390 px.
+- New engine/API checks cover exact schema/recipe pins, historical replay identity, stale editors, stable dataset shapes, independent destination revisions, custom upsert/replayed commits, missing headers/delimiter mismatch, audit-failure rollback, persistent restart, additive V1-column migration, malformed rules, extreme numeric bounds, version limits and spreadsheet-safe export headers.
+- CLI test launches a separate Python process, loads a saved recipe, commits and reopens the resulting custom dataset.
+- No PostgreSQL adapter, external reference-data integration, background processing or measured throughput is claimed.
+
+The original record below is historical.
+
+
 Local verification on 31 October 2026:
 
 - Python 3.12.6; dependencies captured in `requirements.lock`.

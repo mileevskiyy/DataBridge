@@ -4,9 +4,13 @@
 
 CSV/JSON sources, explicit mapping, canonical ledger rules, duplicate/conflict decisions, preserved validation reports, stale-preview detection, atomic commit, replay safety, catalog provenance, CSV exports, CLI and disposable public demo.
 
-## Next: richer validation contracts
+## Implemented: versioned schemas and import recipes
 
-Versioned destination schemas, configurable field rules, explicit locale/date parsing options and reference-data lookups. Acceptance: historical reports remain interpretable after a rule version changes.
+Custom typed datasets, immutable rule versions, explicit date/decimal/CSV parsing, saved versioned recipes, mapping/header checks, dataset-scoped keys/revisions, generic catalog export, historical report snapshots, migration/restart/rollback/CLI/browser coverage. The original ledger remains compatible and read-only as a built-in contract.
+
+## Next: controlled schema evolution
+
+Explicit field additions/type migrations with preview and rollback; relational reference-data lookups; independent uniqueness constraints with a defined upsert conflict model. These are not implemented. Current structural changes require a new dataset.
 
 ## Next: persistent PostgreSQL adapter
 

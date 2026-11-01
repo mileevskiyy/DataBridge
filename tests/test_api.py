@@ -59,3 +59,25 @@ def test_untrusted_paths_and_oversize_upload(client):
     headers = enter(client)
     assert client.get('/api/runs/missing').status_code == 404
     assert client.post('/api/sources',files={'file':('huge.csv',b'a'*2_000_001)},headers=headers).status_code == 413
+
+def test_versioned_schema_recipe_and_catalog_http_contract(client):
+    from test_schemas import definition, MAPPING, OPTIONS, CONTENT
+    assert client.get('/api/schemas').status_code==401
+    headers=enter(client)
+    payload={'name':'HTTP inventory','definition':definition()}
+    assert client.post('/api/schemas',json=payload).status_code==403
+    response=client.post('/api/schemas',json=payload,headers=headers);assert response.status_code==201
+    schema=response.json()
+    recipe_payload={'name':'HTTP supplier recipe','schema_id':schema['id'],'schema_version':1,'mapping':MAPPING,'policy':'upsert','options':OPTIONS}
+    recipe=client.post('/api/recipes',json=recipe_payload,headers=headers).json()
+    source=client.post('/api/sources?delimiter=%3B',files={'file':('feed.csv',CONTENT)},headers=headers).json()
+    result=client.post('/api/runs/validate',json={'source_id':source['id'],'recipe_id':recipe['id'],'recipe_version':1},headers=headers);assert result.status_code==201
+    run=result.json();assert run['context']['recipe']['id']==recipe['id']
+    assert client.post('/api/runs/'+run['id']+'/commit',headers=headers).status_code==200
+    catalog=client.get('/api/catalog',params={'schema_id':schema['id']}).json();assert catalog['records'][0]['sku']=='A-1'
+    assert '12.50' in client.get('/api/records.csv',params={'schema_id':schema['id']}).text
+    revised=client.put('/api/schemas/'+schema['id'],json={**payload,'definition':definition('10'),'expected_version':1},headers=headers);assert revised.status_code==200
+    assert client.put('/api/schemas/'+schema['id'],json={**payload,'expected_version':1},headers=headers).status_code==409
+    assert client.get('/api/schemas/'+schema['id'],params={'version':1}).json()['definition']['fields'][2]['maximum']=='1000'
+    assert client.get('/api/runs/'+run['id']).json()['context']['schema']['version']==1
+    assert client.get('/api/catalog',params={'schema_id':'missing'}).status_code==404
