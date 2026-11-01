@@ -2,6 +2,8 @@
 
 ## Versioned schema/recipe upgrade — 1 November 2026
 
+Application commit `86b4b09` passed [GitHub Actions run 41287703485](https://github.com/mileevskiyy/DataBridge/actions/runs/41287703485): 45 Python checks, production build and both browser scenarios. Render deployment `dep-dbjf7orm8hqs73fnhbr0` reached live. Both scenarios passed against `https://databridge-demo.onrender.com/`, including schema/recipe evolution and preserved historical reports, plus the deliberately delayed workspace-refresh regression.
+
 - Python suite: **45 passed**, including the original 25 checks. Existing dependency deprecation warnings remain; they do not fail the suite.
 - TypeScript checks and production build passed.
 - Browser suite: **2 passed** locally. The original ledger workflow remains covered. The new scenario creates a schema through the editor, imports a semicolon/comma-decimal/DMY file, saves a recipe, commits valid data into its own catalog, publishes tighter rules and a new recipe version, then reopens the original unchanged report. Desktop/mobile screenshots were inspected; no document-level horizontal overflow at 390 px.
